@@ -1,0 +1,9 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+data/police_data/spec-files/
+data/police_data/combined data/
+20*.csv
+sqf-20*.csv
+sqf-20*.xlsx
