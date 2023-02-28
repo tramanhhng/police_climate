@@ -18,7 +18,7 @@ library(readxl)
 
 ```{r data}
 #Read in data
-p0621 <- read_csv(here("data", "police_data", "dashboard data", "sample_p0621.csv"))
+p0621 <- read_csv(here("data", "shared_data", "dashboard data", "sample_p0621.csv"))
 ```
 
 
@@ -88,7 +88,7 @@ streamgraph(p0621_racedata, key="race",
 ### Reference 2020 census data {data-width=5}
 
 ```{r census}
-census2020 <- read_excel(here("data", "census_data", "2020censusNY.xlsx")) %>%
+census2020 <- read_excel(here("data", "shared_data", "census_data", "2020censusNY.xlsx")) %>%
               clean_names() %>%
               mutate(race_ethnicity = fct_relevel(race_ethnicity,
                                                   "American Indian and Alaska Native alone",

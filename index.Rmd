@@ -134,7 +134,6 @@ p0621_racedata %>%
         axis.title.x = element_blank()) +
   coord_flip()
 
-
 ```
 
 
