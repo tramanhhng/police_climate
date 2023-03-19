@@ -4,7 +4,9 @@ output:
   flexdashboard::flex_dashboard:
     orientation: rows
     vertical_layout: fill
+    knit: rmarkdown::render
 ---
+
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
@@ -14,6 +16,8 @@ library(here)
 library(streamgraph)
 library(janitor)
 library(readxl)
+library(gganimate)
+library(ggstream)
 ```
 
 ```{r data}
@@ -28,17 +32,12 @@ This dashboard provides data of the **Stop and Frisk Program in New York City**.
 
 This dashboard used data of the stop and frisk program to explore the relationship between a suspect's race and their likelihood of being stopped and frisked by a police officers.
 
-The original data come from the New York City Police Department website in separate annual files. I combined those files to obtain a complete set of data covering the **2006 - 2021** period. This combined data set contains over four million rows, which made it very difficult to use. I obtained a randomized sample of 160,000 rows and used this sample to complete this dashboard.
+The original data come from the New York City Police Department website in separate annual files. I combined those files to obtain a complete set of data covering the **2006 - 2021** period. This combined data set contains over four million rows, which made it very difficult to use. I obtained a randomized sample of 160,000 stop incidences and used this sample to complete this dashboard.
 
-Stop frisk by race
+Racial breakdown
 ========
 
 
-Row {data-height=650}
------------------------------------------------------------------------
-
-### Number and distribution of police stops by subject race {data-width=10}
-text holder
 
 ```{r, eval=TRUE, echo=FALSE, include=FALSE}
 
@@ -50,122 +49,206 @@ p0621_racedata <- p0621 %>%
             count_frisk=sum(frisked =="Y"),
             count_search = sum(searched =="Y"),
             percent_frisk = count_frisk/count_stop*100,
-            percent_search = count_search/count_stop*100) %>%
-  mutate(race = fct_relevel(race, "White", 
-                        "White Hispanic", 
+            percent_search = count_search/count_stop*100) 
+
+p0621_racedata <- p0621_racedata%>%
+  mutate(race = fct_relevel(race, "White",
                         "Black", 
-                        "Black Hispanic",
                         "Asian/Pacific Islander",
-                        "American Indian/ Alaskan Native",
+                        "American Indian/ Alaskan Native", 
+                        "White Hispanic", 
+                        "Black Hispanic",
                         "Others",
                         "Unknown"))
 
+str(p0621_racedata$race)
 #Assign color
 
-colors1 <- c('#FFA600',"#ff764a", "#ef5675", '#bc5090', '#7a5195', '#374c80', '#003f5c', '#000000')
+colors1 <- c('#0077BB',"#33bbee", "#009988", '#ee7733', '#cc3311', '#ee3377', '#bbbbbb', '#000000')
 
 my_scale1 <- scale_fill_manual(name=p0621_racedata$race, values=colors1)
 
 ```
 
-```{r, eval=TRUE, echo=FALSE, include=TRUE}
-#Percent of police stops by subject race
+
+Row {data-height=550}
+-----------------------------------------------------------------------
+
+### Racial breakdown of stop targets in NYC {data-padding=90}
+Black and people with Hispanic origin make up a majority of stops in any given year. The program became unpopular after its peak in 2011 when NYPD encountered criticism for over 99% of non-lethal violence in the city being committed by the NYPD itself.
+
+```{r, eval=TRUE, fig.height=5, fig.width=7}
+#Add sg_add_marker function
+sg_add_marker <- function(sg, x, label="", stroke_width=0.5, stroke="#7f7f7f", space=5,
+                          y=0, color="#7f7f7f", size=12, anchor="start") {
+
+  if (inherits(x, "Date")) { x <- format(x, "%Y-%m-%d") }
+
+  mark <- data.frame(x=x, y=y, label=label, color=color, stroke_width=stroke_width, stroke=stroke,
+                     space=space, size=size, anchor=anchor, stringsAsFactors=FALSE)
+
+  if (is.null(sg$x$markers)) {
+    sg$x$markers <- mark
+  } else {
+    sg$x$markers <- bind_rows(mark, sg$x$markers)
+  }
+
+  sg
+
+}
 
 streamgraph(p0621_racedata, key="race", 
                             value = "count_stop", 
                             date = "year",
-                            offset="expand") %>%
-  sg_fill_manual(values=colors1) %>%
+                            offset="zero") %>%
+  sg_fill_manual(values=c('#ee7733',"#009988","#33bbee",'#ee3377','#bbbbbb', '#0077BB',  '#cc3311',   '#000000')) %>%
   sg_axis_x(tick_interval = 1) %>%
-  sg_legend(show=TRUE, label= "Racial and ethnic group")
+  sg_axis_y(tick_count = 5)%>%
+  sg_legend(show=TRUE, label= "Racial and ethnic group") %>%
+  sg_add_marker(x=as.Date('2011-01-01'), y=18000, label="Program peak", stroke_width = 2, anchor="start")
+
+?sg_axis_y
 
 #Problems with this graph:
 ##The x axis and filter option shows in the viewer but not the exported document
 ##I have not figured out how to add axis titles to this graph and arrange the races in the order and colors I want.
 ```
+Black and people with Hispanic origin make up a majority of stops in any given year. The program became unpopular after its peak in 2011 when NYPD encountered criticism for over 99% of non-lethal violence in the city being committed by the NYPD itself.
+
+```{r, eval=FALSE, echo=FALSE, include=TRUE, fig.width=10}
+#Percent of police stops by subject race
+
+p0621_racedata %>%
+  mutate(race = fct_relevel(race, "White",
+                        "Black", 
+                        "Asian/Pacific Islander",
+                        "American Indian/ Alaskan Native", 
+                        "White Hispanic", 
+                        "Black Hispanic",
+                        "Others",
+                        "Unknown"))%>%
+  ggplot(aes(x=year,y=count_stop,fill=race))+
+  geom_stream(type="ridge")+
+  my_scale1+
+  theme_minimal() +
+  labs(x="Year",
+       y="Number of stops",
+       fill="Racial/Ethnic group")+
+  theme(plot.background=element_blank(),
+        panel.grid = element_blank()) +
+  guides(fill = guide_legend(title = "Racial/Ethnic group"))
 
 
-### Reference 2020 census data {data-width=5}
+```
 
-```{r census}
+
+Row {data-height=500}
+-------
+
+### Racial makeup in NYC census and among stop incidences in 2020 {data-width=200, data.padding=10}
+Blacks and Hispanics account for a much higher portion of targets in stop-and-frisk than represented in the population
+
+
+```{r census, eval=FALSE}
 census2020 <- read_excel(here("data", "shared_data", "census_data", "2020censusNY.xlsx")) %>%
               clean_names() %>%
-              mutate(race_ethnicity = fct_relevel(race_ethnicity,
-                                                  "American Indian and Alaska Native alone",
-                                                  "Asian/Pacific Islander",
+              select(race_ethnicity, percent) %>%
+              mutate(source="census")
+
+stop2020 <- p0621_racedata %>%
+            filter(year=="2020") %>%
+            select(race, count_stop) %>%
+            mutate(race_ethnicity= fct_recode(race,
+                                              "Hispanic or Latino" = "Black Hispanic",
+                                              "Hispanic or Latino" = "White Hispanic",
+                                              "Black or African American alone"="Black",
+                                              "White alone"="White",
+                                              "American Indian and Alaska Native alone"="American Indian/ Alaskan Native")) %>%
+            group_by(race_ethnicity) %>%
+            summarize(count_stop = as.numeric(sum(count_stop))) %>%
+            mutate(percent=count_stop*100/8632,
+                   source="stop") %>%
+            select(race_ethnicity, percent, source)
+
+census_stop_2020 <- rbind(census2020, stop2020)%>%
+                    mutate(race_ethnicity = fct_relevel(race_ethnicity,
+                                                  "White alone",
                                                   "Black or African American alone",
+                                                  "Asian/Pacific Islander",
+                                                  "American Indian and Alaska Native alone",
                                                   "Hispanic or Latino",
                                                   "Others",
-                                                  "White alone"))
+                                                  ))
 
-my_scale2 <- scale_fill_manual(name=census2020$race_ethnicity, values=colors1)
 
-ggplot(census2020, aes(x=year, y=percent)) +
-  geom_col(aes(fill=race_ethnicity)) +
+colors2 <- c('#0077BB',"#33bbee", "#009988", '#ee7733', '#cc3311', '#bbbbbb')
+my_scale2 <- scale_fill_manual(name=census_stop_2020$race_ethnicity, values=colors2)
+
+
+#compare_census <- 
+  ggplot(census_stop_2020, aes(y=race_ethnicity,x=percent, fill=race_ethnicity)) +
+  geom_bar(stat='identity') +
   my_scale2 +
-  labs(fill="Racial and ethnic groups") +
   theme_minimal() +
   theme(plot.background=element_blank(),
         panel.grid = element_blank(),
         axis.title.y = element_blank(),
-        axis.title.x= element_blank())
+        axis.text.y = element_text(size=12),
+        legend.position = "none",
+        title=element_text(size=12)) +
+  labs(x="Percentage",
+       fill="Racial/Ethnic group") +
+  transition_states(source, transition_length=2)+ 
+  ease_aes('sine-in')
 
-#No idea why 2020 shows up as 3 different years.
+  
+library(gifski)
+animate(compare_census, duration = 7, fps = 20, width = 500, height = 200, 
+        renderer = gifski_renderer())
+anim_save("output.gif")
+
+```
+
+```{r, eval=TRUE}
+
+
+knitr::include_graphics(here("output.gif"))
+
+?knitr::include_graphics
+
 ```
 
 
 
-Row
--------
 
-### Likelihood of subject being frisked once stopped, by subject race
-text holder
+### Likelihood of frisk incidence {data-width=200}
+Once stopped, Blacks and Hispanics are also more likely frisked for a variety of reasons.
 
-```{r, fig.width= 15}
+```{r, fig.width= 5, fig.height=2}
 p0621_racedata %>%
   group_by(race) %>%
   summarize(percent_frisk_avg=mean(percent_frisk), na.rm=TRUE) %>%
-  ggplot(aes(race, percent_frisk_avg)) +
-  geom_col(aes(fill=race)) +
+  mutate(race = fct_relevel(race, "White",
+                        "Black", 
+                        "Asian/Pacific Islander",
+                        "American Indian/ Alaskan Native", 
+                        "White Hispanic", 
+                        "Black Hispanic",
+                        "Others",
+                        "Unknown")) %>%
+  ggplot(aes(y=race, x=percent_frisk_avg, fill=race)) +
+  geom_col() +
   my_scale1 + 
-  labs(y= "Percentage of subject being frisked, averaged by year") +
+  labs(x= "Mean annual percentage",
+       y="",
+       fill= "Racial/Ethnic group") +
+  theme_minimal() +
   theme(plot.background=element_blank(),
         panel.grid = element_blank(),
-        axis.title.x = element_blank()) +
-  coord_flip()
-
-?theme
-
-```
-
-
-
-Stop frisk and temperature {data-orientation=rows}
-=======
-
-Row
-----------
-
-### Chart 1
-
-```{r}
+        legend.position = "none",
+        axis.text.x=element_text(size=10))
 
 
 ```
 
-
-### Chart 2
-
-```{r}
-
-
-```
-
-Row
----------------------
-### Chart 3
-
-```{r}
-
-```
 
